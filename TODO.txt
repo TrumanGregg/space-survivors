@@ -1,9 +1,0 @@
-Add enemy spawn interval
-Add player_stats struct
-allow player to die
-Active array for enemies and projectiles
-Add menu screen
-Scale textures with resolution to ensure visablilty on all displays
-
-refactor main.c, camera shake and star stuff
-IsWithin helper functions? Look at UpdateProjectiles()
