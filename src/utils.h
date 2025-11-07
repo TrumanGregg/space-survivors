@@ -1,9 +1,7 @@
 #if !defined(UTILS_H)
 #define UTILS_H
 
-#include <stdlib.h>
 #include <stdint.h>
-#include <string.h>
 
 #define internal static
 #define local_persist static
@@ -28,7 +26,7 @@ typedef double f64;
 
 internal inline f32 RandomFloat(f32 Min, f32 Max)
 {
-    return(Min + ((f32)rand() / (f32)RAND_MAX) * (Max - Min));
+    return(Min + ((f32)GetRandomValue(0, INT32_MAX) / (f32)INT32_MAX) * (Max - Min));
 }
 
 #endif

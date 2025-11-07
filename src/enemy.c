@@ -13,7 +13,7 @@ typedef struct
     bool32 Active[MAX_ENEMIES];
 } enemy_pool;
 
-void SpawnEnemies(enemy_pool* Enemies, Vector2 Position, const int32 Amount)
+void SpawnEnemies(enemy_pool* Enemies, Vector2 Position, int32 Amount)
 {
     for(int32 i = 0; i < Amount; i++)
     {

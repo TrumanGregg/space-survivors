@@ -8,7 +8,7 @@
 typedef struct
 {
     Vector2 Position[MAX_PROJECTILES];
-    f32 Angle[MAX_PROJECTILES];
+    Vector2 Direction[MAX_PROJECTILES];
     bool32 Active[MAX_PROJECTILES];
 } projectile_pool;
 
@@ -19,7 +19,7 @@ void SpawnProjectile(projectile_pool* Projectiles, Vector2 Position, f32 Angle)
         if(!Projectiles->Active[i])
         {
             Projectiles->Position[i] = Position;
-            Projectiles->Angle[i] = Angle;
+            Projectiles->Direction[i] = (Vector2){sinf(Angle), -cosf(Angle)};
             Projectiles->Active[i] = true;
             break;
         }
@@ -39,8 +39,7 @@ void UpdateProjectiles(projectile_pool* Projectiles, int32 WindowWidth, int32 Wi
             }
             else
             {
-                Vector2 Direction = (Vector2){sinf(Projectiles->Angle[i]), -cosf(Projectiles->Angle[i])};
-                Projectiles->Position[i] = Vector2Add(Projectiles->Position[i], Vector2Scale(Direction, PROJECTILE_SPEED * dt));
+                Projectiles->Position[i] = Vector2Add(Projectiles->Position[i], Vector2Scale(Projectiles->Direction[i], PROJECTILE_SPEED * dt));
             }
         }
     }
@@ -52,18 +51,7 @@ void DrawProjectiles(const projectile_pool Projectiles)
     {
         if(Projectiles.Active[i])
         {
-            Vector2 Position = Projectiles.Position[i];
-            Vector2 Direction = (Vector2){sinf(Projectiles.Angle[i]), -cosf(Projectiles.Angle[i])};
-
-            DrawCircleV(Position, 3.0f, SKYBLUE);
-
-            for(int32 j = 0; j <= 8; j++)
-            {
-                Vector2 Trail = Vector2Subtract(Position, Vector2Scale(Direction, j * 3.0f));
-                Color Fade = SKYBLUE;
-                Fade.a = (uint8)Clamp((200.0f - j * 15.0f), 0.0f, 255.0f);
-                DrawCircleV(Trail, 2.0f, Fade);
-            }
+            DrawLineEx(Projectiles.Position[i], Vector2Add(Projectiles.Position[i], Vector2Scale(Projectiles.Direction[i], 15.0f)), 3.0f, SKYBLUE);
         }
     }
 }
