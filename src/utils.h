@@ -24,7 +24,7 @@ typedef int32_t bool32;
 typedef float f32;
 typedef double f64;
 
-internal inline f32 RandomFloat(f32 Min, f32 Max)
+inline f32 RandomFloat(f32 Min, f32 Max)
 {
     return(Min + ((f32)GetRandomValue(0, INT32_MAX) / (f32)INT32_MAX) * (Max - Min));
 }

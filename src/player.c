@@ -5,14 +5,14 @@
 #define ROTATION_SPEED 300.0f
 #define FRICTION_COEFFICIENT 0.98f
 
-typedef struct
+typedef struct player player;
+struct player
 {
-    Texture2D Texture;
     Vector2 Position;
     Vector2 Velocity;
     Vector2 Acceleration;
     f32 Angle;
-} player;
+};
 
 void AcceleratePlayer(player* Player, f32 dt)
 {
@@ -32,12 +32,12 @@ void UpdatePlayer(player* Player, int32 WindowWidth, int32 WindowHeight, f32 dt)
     Player->Position.y = Wrap(Player->Position.y, -15.0f, WindowHeight + 15.0f);
 }
 
-void DrawPlayer(const player Player)
+void DrawPlayer(player Player, Texture2D PlayerTexture)
 {
-    DrawTexturePro(Player.Texture,
-        (Rectangle){0.0f, 0.0f, (f32)Player.Texture.width, (f32)Player.Texture.height},
-        (Rectangle){Player.Position.x, Player.Position.y, (f32)Player.Texture.width, (f32)Player.Texture.height},
-        (Vector2){Player.Texture.width / 2.0f, Player.Texture.height / 2.0f},
+    DrawTexturePro(PlayerTexture,
+        (Rectangle){0.0f, 0.0f, (f32)PlayerTexture.width, (f32)PlayerTexture.height},
+        (Rectangle){Player.Position.x, Player.Position.y, (f32)PlayerTexture.width, (f32)PlayerTexture.height},
+        (Vector2){PlayerTexture.width / 2.0f, PlayerTexture.height / 2.0f},
         Player.Angle,
         WHITE);
 }
