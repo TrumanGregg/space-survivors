@@ -57,12 +57,14 @@ internal bool32 ResolveCollisions(projectile_pool* Projectiles, enemy_pool* Enem
 	return(false);
 }
 
-internal void DrawStars(Vector2* Stars)
+internal void DrawBackground(Vector2* Stars)
 {
-	Color C = GRAY;
+	ClearBackground(BACKGROUND_COLOR);
 
     rlSetTexture(0);
     rlBegin(RL_QUADS);
+
+	Color C = GRAY;
     rlColor4ub(C.r, C.g, C.b, C.a);
 
     for(int32 i = 0; i < MAX_STARS; i++)
@@ -79,16 +81,16 @@ internal void DrawStars(Vector2* Stars)
     rlEnd();
 }
 
-internal void DrawUI(void)
+internal void DrawHUD(void)
 {
     DrawFPS(10, 10);
 }
 
 // NOTE(griffin): TEMP
-internal void DrawMainMenu(void)
+internal void DrawMainMenu(Vector2* Stars)
 {
 	BeginDrawing();
-	ClearBackground(SKYBLUE);
+	DrawBackground(Stars);
 	int FirstOffset = MeasureText("Space Survivors", 48);
 	int SecondOffset = MeasureText("Play", 48);
 	int ThirdOffset = MeasureText("Controls", 48);
@@ -104,17 +106,16 @@ internal void DrawMainMenu(void)
 internal void DrawPausedMenu(void)
 {
 	BeginDrawing();
-	ClearBackground(SKYBLUE);
 	int Offset = MeasureText("Paused", 48);
 	DrawText("Paused", (WindowWidth / 2.0f) - (Offset / 2.0f), (WindowHeight / 2.0f) - 200.0f, 48, WHITE);
 	EndDrawing();
 }
 
 // NOTE(griffin): TEMP
-internal void DrawControlsMenu(void)
+internal void DrawControlsMenu(Vector2* Stars)
 {
 	BeginDrawing();
-	ClearBackground(SKYBLUE);
+	DrawBackground(Stars);
 	int Offset = MeasureText("Controls", 48);
 	DrawText("Controls", (WindowWidth / 2.0f) - (Offset / 2.0f), (WindowHeight / 2.0f) - 200.0f, 48, WHITE);
 	EndDrawing();
@@ -224,13 +225,13 @@ int main(void)
 		{
 			case MainMenu:
 			{
-				DrawMainMenu();
+				DrawMainMenu(Stars);
 				break;
 			}
 
 			case Controls:
 			{
-				DrawControlsMenu();
+				DrawControlsMenu(Stars);
 				break;
 			}
 
@@ -286,8 +287,7 @@ int main(void)
 					}
 
 					BeginDrawing();
-					ClearBackground(BACKGROUND_COLOR);
-					DrawStars(Stars);
+					DrawBackground(Stars);
 
 					BeginMode2D(GameCamera.Camera);
 					DrawPlayer(Player, PlayerTexture);
@@ -296,13 +296,23 @@ int main(void)
 					DrawParticles(&Particles);
 					EndMode2D();
 
-					DrawUI();
+					DrawHUD();
 					EndDrawing();
 					break;
 				}
 
 				case Paused:
 				{
+					DrawBackground(Stars);
+
+					BeginMode2D(GameCamera.Camera);
+					DrawPlayer(Player, PlayerTexture);
+					DrawProjectiles(Projectiles);
+					DrawEnemies(Enemies, EnemyTexture);
+					DrawParticles(&Particles);
+					EndMode2D();
+
+					DrawHUD();
 					DrawPausedMenu();
 					break;
 				}
