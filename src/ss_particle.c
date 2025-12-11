@@ -7,7 +7,7 @@ struct particle_system
     v2 Velocities[PARTICLE_COUNT];
     f32 Sizes[PARTICLE_COUNT];
     f32 Lifetimes[PARTICLE_COUNT];
-        Color Colors[PARTICLE_COUNT];
+    Color Colors[PARTICLE_COUNT];
 
     f32 Accumulator;
 };

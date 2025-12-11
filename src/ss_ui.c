@@ -26,9 +26,9 @@ bool32 DoBoxedButton(const char* Text, Rectangle ButtonBounds, int32 FontSize, C
     int32 TextX = (int32)ButtonBounds.x + ((int32)ButtonBounds.width / 2 - TextW / 2);
     int32 TextY = (int32)ButtonBounds.y + ((int32)ButtonBounds.height / 2 - FontSize / 2);
     
-        DrawRectangleRec(ButtonBounds, ButtonColor);
+    DrawRectangleRec(ButtonBounds, ButtonColor);
     DrawRectangleLinesEx(ButtonBounds, 2, WHITE);
-DrawText(Text, TextX, TextY, FontSize, TextColor);
+    DrawText(Text, TextX, TextY, FontSize, TextColor);
     
     if(IsHovering && IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
     {

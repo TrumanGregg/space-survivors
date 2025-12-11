@@ -5,8 +5,8 @@ typedef struct player player;
 struct player
 {
     v2 Position;
-v2 Velocity;
-v2 Acceleration;
+    v2 Velocity;
+    v2 Acceleration;
     f32 Angle;
     f32 Health;
     f32 MaxHealth;

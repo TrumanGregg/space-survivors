@@ -345,7 +345,7 @@ internal void DrawLevelUpScreen(game_state* State)
     if(DoBoxedButton("Increase Move Speed", ButtonRect3, 36, BLUE))
     {
         State->Player.Acceleration = Vector2Add(State->Player.Acceleration, Vector2Scale(State->Player.Acceleration, 1.05f));
-State->Player.HasLeveledUp = false;
+        State->Player.HasLeveledUp = false;
         State->Type = Playing;
     }
 }
