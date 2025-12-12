@@ -21,37 +21,15 @@ global Sound ButtonClickSound;
 
 global bool32 IsRunning = true;
 
-#include "ss.h"
+INLINE f32 RandomFloat(f32 Min, f32 Max);
+INLINE v2 GetWindowCenter(void);
+
 #include "ss_particle.c"
 #include "ss_player.c"
 #include "ss_projectile.c"
 #include "ss_enemy.c"
+#include "ss.h"
 #include "ss_ui.c"
-
-typedef enum state_type state_type;
-enum state_type
-{
-	MainMenu,
-	Controls,
-	Playing,
-	LevelUp,
-	Paused,
-	GameOver,
-	Quit,
-};
-
-typedef struct game_state game_state;
-struct game_state
-{
-    state_type Type;
-    state_type LastType;
-    player Player;
-    enemy_pool Enemies;
-    particle_system Particles;
-    projectile_pool Projectiles;
-    Camera2D Camera;
-    f32 CameraShakeStrength;
-};
 
 internal void InitGame(game_state* State)
 {
@@ -116,6 +94,7 @@ internal void ResolveCollisions(game_state* State)
             }
         }
     }
+    
     for(int32 i = 0; i < MAX_ENEMIES; i++)
     {
         if(State->Enemies.Active[i])
