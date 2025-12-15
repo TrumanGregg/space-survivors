@@ -10,6 +10,8 @@
 #define WINDOW_WIDTH 1280
 #define WINDOW_HEIGHT 720
 #define BACKGROUND_COLOR (Color){15, 15, 15, 255}
+#define DAMAGE_COOLDOWN 0.25f
+#define HIGHSCORE_FILE "highscore.txt"
 
 global v2 Stars[128];
 
@@ -33,6 +35,27 @@ INLINE v2 GetWindowCenter(void);
 #include "ss.h"
 #include "ss_ui.c"
 
+internal int32 LoadHighScore(void)
+{
+    FILE* File = fopen(HIGHSCORE_FILE, "r");
+    if (!File) return 0;
+
+    int32 Score = 0;
+    fscanf(File, "%d", &Score);
+    fclose(File);
+
+    return Score;
+}
+
+internal void SaveHighScore(int32 Score)
+{
+    FILE* File = fopen(HIGHSCORE_FILE, "w");
+    if (!File) return;
+
+    fprintf(File, "%d", Score);
+    fclose(File);
+}
+
 internal void InitGame(game_state* State)
 {
     *State = (game_state){ 0 };
@@ -48,6 +71,7 @@ internal void InitGame(game_state* State)
     State->Player.MaxHealth = 100.0f;
     State->Player.Level = 1;
     State->Player.ProjectileCount = 1;
+    State->Player.HighScore = LoadHighScore();
 
     State->Camera.target = GetWindowCenter();
     State->Camera.offset = GetWindowCenter();
@@ -106,7 +130,7 @@ internal void ResolveCollisions(game_state* State)
                 if (State->Player.DamageCooldown <= 0.0f)
                 {
                     State->Player.Health -= State->Enemies.Damage;
-                    State->Player.DamageCooldown = 0.25f;
+                    State->Player.DamageCooldown = DAMAGE_COOLDOWN;
                 }
                 if (State->Player.Health <= 0)
                 {
@@ -220,6 +244,16 @@ internal void DrawGameOver(game_state* State)
 
 internal void DrawHUD(game_state* State)
 {
+    if(State->Player.DamageCooldown > 0.0f){
+        f32 Alpha = Clamp(State->Player.DamageCooldown / DAMAGE_COOLDOWN,
+            0.0f, 1.0f);
+
+        DrawRectangle(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
+            (Color) {
+            255, 0, 0, (unsigned char)(Alpha * 120)
+        });
+    }
+
     f32 Health = Clamp(State->Player.Health, 0.0f, State->Player.MaxHealth);
 
     f32 MaxExp = ExpRequiredForLevelUp(State->Player.Level);
@@ -261,6 +295,10 @@ internal void DrawHUD(game_state* State)
     char LevelText[64];
     snprintf(LevelText, sizeof(LevelText), "Level: %d", State->Player.Level);
     DrawText(LevelText, WINDOW_WIDTH - MeasureText(LevelText, 32) - 20, 60, 32, WHITE);
+
+    char HighScoreText[64];
+    snprintf(HighScoreText, sizeof(HighScoreText), "High Score: %d", State->Player.HighScore);
+    DrawText(HighScoreText, (WINDOW_WIDTH / 2) - (MeasureText(HighScoreText, 35) / 2), 20, 35, YELLOW);
 }
 
 internal void DrawLevelUpScreen(game_state* State)
@@ -343,14 +381,14 @@ int main(void)
     rlDisableBackfaceCulling();
     rlDisableDepthTest();
 
-    EnemyTexture = LoadTexture("assets/enemy.png");
-    PlayerTexture = LoadTexture("assets/ship.png");
-    ExplosionSound = LoadSound("assets/sfx/explosion.mp3");
-    ThrusterSound = LoadSound("assets/sfx/thruster.mp3");
-    ButtonClickSound = LoadSound("assets/sfx/button.mp3");
+    EnemyTexture = LoadTexture("../assets/enemy.png");
+    PlayerTexture = LoadTexture("../assets/ship.png");
+    ExplosionSound = LoadSound("../assets/sfx/explosion.mp3");
+    ThrusterSound = LoadSound("../assets/sfx/thruster.mp3");
+    ButtonClickSound = LoadSound("../assets/sfx/button.mp3");
 
-    MenuMusic = LoadMusicStream("assets/music/menu.mp3");
-    GameplayMusic = LoadMusicStream("assets/music/gameplay.mp3");
+    MenuMusic = LoadMusicStream("../assets/music/menu.mp3");
+    GameplayMusic = LoadMusicStream("../assets/music/gameplay.mp3");
 
     SetMusicVolume(MenuMusic, 1.0f);
     SetMusicVolume(GameplayMusic, 1.0f);
@@ -375,10 +413,6 @@ int main(void)
     while (!WindowShouldClose() && IsRunning)
     {
         f32 dt = GetFrameTime();
-
-        /*TraceLog(LOG_INFO, "MenuMusic length: %f", GetMusicTimeLength(MenuMusic));
-        TraceLog(LOG_INFO, "Is MenuMusic playing? %d", IsMusicStreamPlaying(MenuMusic));*/
-
 
         BeginDrawing();
         DrawBackground();
@@ -552,6 +586,12 @@ int main(void)
             if (IsSoundPlaying(ThrusterSound))
             {
                 StopSound(ThrusterSound);
+            }
+
+            if (State.Enemies.CurrentWave > State.Player.HighScore)
+            {
+                State.Player.HighScore = State.Enemies.CurrentWave;
+                SaveHighScore(State.Player.HighScore);
             }
 
             DrawGameOver(&State);
