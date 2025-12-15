@@ -15,6 +15,7 @@ struct player
     int32 ProjectileCount;
     int32 Level;
     bool32 HasLeveledUp;
+    int32 HighScore;
 };
 
 INLINE f32 ExpRequiredForLevelUp(int32 CurrentLevel)

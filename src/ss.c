@@ -10,6 +10,8 @@
 #define WINDOW_WIDTH 1280
 #define WINDOW_HEIGHT 720
 #define BACKGROUND_COLOR (Color){15, 15, 15, 255}
+#define DAMAGE_COOLDOWN 0.25f
+#define HIGHSCORE_FILE "highscore.txt"
 
 global v2 Stars[128];
 
@@ -33,6 +35,27 @@ INLINE v2 GetWindowCenter(void);
 #include "ss.h"
 #include "ss_ui.c"
 
+internal int32 LoadHighScore(void)
+{
+    FILE* File = fopen(HIGHSCORE_FILE, "r");
+    if (!File) return 0;
+
+    int32 Score = 0;
+    fscanf(File, "%d", &Score);
+    fclose(File);
+
+    return Score;
+}
+
+internal void SaveHighScore(int32 Score)
+{
+    FILE* File = fopen(HIGHSCORE_FILE, "w");
+    if (!File) return;
+
+    fprintf(File, "%d", Score);
+    fclose(File);
+}
+
 internal void InitGame(game_state* State)
 {
     *State = (game_state){ 0 };
@@ -41,19 +64,20 @@ internal void InitGame(game_state* State)
     State->Enemies.EnemiesRemaining = 10;
     State->Enemies.Speed = 50.0f;
     State->Enemies.Damage = 1.0f;
-
+    
     State->Player.Position = GetWindowCenter();
     State->Player.Acceleration = (v2){ 300.0f, 300.0f };
     State->Player.Health = 100.0f;
     State->Player.MaxHealth = 100.0f;
     State->Player.Level = 1;
     State->Player.ProjectileCount = 1;
+    State->Player.HighScore = LoadHighScore();
 
     State->Camera.target = GetWindowCenter();
     State->Camera.offset = GetWindowCenter();
     State->Camera.zoom = 1.0f;
     State->CameraShakeStrength = 0.0f;
-
+    
     SpawnEnemies(&State->Enemies, State->Player.Position, State->Enemies.EnemiesToSpawn);
 }
 
@@ -84,9 +108,9 @@ internal void ResolveCollisions(game_state* State)
                         State->Enemies.Active[j] = false;
                         State->Enemies.EnemiesRemaining--;
                         State->Projectiles.Active[i] = false;
-
+                        
                         State->Player.Exp += ExpRequiredForLevelUp(State->Player.Level) / 20.0f;
-
+                        
                         EmitParticles(&State->Particles, State->Enemies.Positions[j], RED, 32);
                         PlaySound(ExplosionSound);
                         ShakeCamera(State);
@@ -96,7 +120,7 @@ internal void ResolveCollisions(game_state* State)
             }
         }
     }
-
+    
     for (int32 i = 0; i < MAX_ENEMIES; i++)
     {
         if (State->Enemies.Active[i])
@@ -106,7 +130,7 @@ internal void ResolveCollisions(game_state* State)
                 if (State->Player.DamageCooldown <= 0.0f)
                 {
                     State->Player.Health -= State->Enemies.Damage;
-                    State->Player.DamageCooldown = 0.25f;
+                    State->Player.DamageCooldown = DAMAGE_COOLDOWN;
                 }
                 if (State->Player.Health <= 0)
                 {
@@ -123,7 +147,7 @@ internal void UpdateBackground(game_state* State, f32 dt)
     for (int32 i = 0; i < ArrayCount(Stars); i++)
     {
         Stars[i] = Vector2Subtract(Stars[i], Vector2Scale(State->Player.Velocity, 0.25f * dt));
-
+        
         Stars[i].x = Wrap(Stars[i].x, 0.0f, (f32)WINDOW_WIDTH);
         Stars[i].y = Wrap(Stars[i].y, 0.0f, (f32)WINDOW_HEIGHT);
     }
@@ -132,22 +156,22 @@ internal void UpdateBackground(game_state* State, f32 dt)
 internal void DrawBackground(void)
 {
     ClearBackground(BACKGROUND_COLOR);
-
+    
     rlSetTexture(0);
     rlBegin(RL_QUADS);
     rlColor4ub(130, 130, 130, 255);
-
+    
     for (int32 i = 0; i < ArrayCount(Stars); i++)
     {
         f32 X = Stars[i].x;
         f32 Y = Stars[i].y;
-
+        
         rlVertex2f(X - 1.0f, Y - 1.0f);
         rlVertex2f(X + 1.0f, Y - 1.0f);
         rlVertex2f(X + 1.0f, Y + 1.0f);
         rlVertex2f(X - 1.0f, Y + 1.0f);
     }
-
+    
     rlEnd();
 }
 
@@ -173,7 +197,7 @@ internal void DrawMainMenu(game_state* State)
 internal void DrawPausedMenu(game_state* State)
 {
     DrawRectangle(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, (Color) { 0, 0, 0, 150 });
-
+    
     DrawText("Paused", (WINDOW_WIDTH / 2) - (MeasureText("Paused", 48) / 2), (WINDOW_HEIGHT / 2) - 200, 48, WHITE);
     if (DoButton("Resume", (WINDOW_WIDTH / 2) - (MeasureText("Resume", 48) / 2), (WINDOW_HEIGHT / 2), 48))
     {
@@ -220,59 +244,73 @@ internal void DrawGameOver(game_state* State)
 
 internal void DrawHUD(game_state* State)
 {
-    f32 Health = Clamp(State->Player.Health, 0.0f, State->Player.MaxHealth);
+    if(State->Player.DamageCooldown > 0.0f){
+        f32 Alpha = Clamp(State->Player.DamageCooldown / DAMAGE_COOLDOWN,
+            0.0f, 1.0f);
 
+        DrawRectangle(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
+            (Color) {
+            255, 0, 0, (unsigned char)(Alpha * 120)
+        });
+    }
+
+    f32 Health = Clamp(State->Player.Health, 0.0f, State->Player.MaxHealth);
+    
     f32 MaxExp = ExpRequiredForLevelUp(State->Player.Level);
     f32 Exp = Clamp(State->Player.Exp, 0.0f, MaxExp);
-
+    
     f32 BarWidth = 200.0f;
     f32 BarHeight = 20.0f;
-
+    
     f32 X = 20.0f;
     f32 Y = WINDOW_HEIGHT - BarHeight - 20.0f;
     f32 ExpBarY = Y - BarHeight - 10.0f;
-
+    
     f32 ExpPercent = Exp / MaxExp;
     f32 FillWidth = BarWidth * ExpPercent;
-
+    
     DrawRectangle((int32)X, (int32)ExpBarY, (int32)BarWidth, (int32)BarHeight, BLACK);
     DrawRectangle((int32)X, (int32)ExpBarY, (int32)FillWidth, (int32)BarHeight, DARKGREEN);
     DrawRectangleLines((int32)X, (int32)ExpBarY, (int32)BarWidth, (int32)BarHeight, WHITE);
-
+    
     char ExpBarLabel[64];
     snprintf(ExpBarLabel, sizeof(ExpBarLabel), "EXP: %.0f", Exp);
     DrawText(ExpBarLabel, (int32)(X + (BarWidth / 2) - (MeasureText(ExpBarLabel, 18) / 2)), (int32)(ExpBarY + (BarHeight / 2) - 9), 18, WHITE);
-
+    
     f32 HealthPercent = Health / State->Player.MaxHealth;
     FillWidth = BarWidth * HealthPercent;
-
+    
     DrawRectangle((int32)X, (int32)Y, (int32)BarWidth, (int32)BarHeight, BLACK);
     DrawRectangle((int32)X, (int32)Y, (int32)FillWidth, (int32)BarHeight, RED);
     DrawRectangleLines((int32)X, (int32)Y, (int32)BarWidth, (int32)BarHeight, WHITE);
-
+    
     char HealthBarLabel[64];
     snprintf(HealthBarLabel, sizeof(HealthBarLabel), "Health: %.0f", Health);
     DrawText(HealthBarLabel, (int32)(X + (BarWidth / 2) - (MeasureText(HealthBarLabel, 18) / 2)), (int32)(Y + (BarHeight / 2) - 9), 18, WHITE);
-
+    
     char WaveText[64];
     snprintf(WaveText, sizeof(WaveText), "Wave: %d", State->Enemies.CurrentWave);
     DrawText(WaveText, WINDOW_WIDTH - MeasureText(WaveText, 32) - 20, 20, 32, WHITE);
-
+    
     char LevelText[64];
     snprintf(LevelText, sizeof(LevelText), "Level: %d", State->Player.Level);
     DrawText(LevelText, WINDOW_WIDTH - MeasureText(LevelText, 32) - 20, 60, 32, WHITE);
+
+    char HighScoreText[64];
+    snprintf(HighScoreText, sizeof(HighScoreText), "High Score: %d", State->Player.HighScore);
+    DrawText(HighScoreText, (WINDOW_WIDTH / 2) - (MeasureText(HighScoreText, 35) / 2), 20, 35, YELLOW);
 }
 
 internal void DrawLevelUpScreen(game_state* State)
 {
     DrawRectangle(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, (Color) { 0, 0, 0, 200 });
-
+    
     int32 ButtonWidth = 500;
     int32 ButtonHeight = 70;
-
+    
     int32 CenterX = WINDOW_WIDTH / 2;
     int32 StartY = WINDOW_HEIGHT / 2 - 120;
-
+    
     const char* Title = "Level-Up Upgrades";
     Rectangle TitleRect = {
         (f32)CenterX - ButtonWidth / 2,
@@ -280,36 +318,36 @@ internal void DrawLevelUpScreen(game_state* State)
         (f32)ButtonWidth,
         (f32)ButtonHeight
     };
-
+    
     DrawRectangleRec(TitleRect, DARKGRAY);
     DrawRectangleLinesEx(TitleRect, 2, WHITE);
-
+    
     int32 TextW = MeasureText(Title, 48);
     int32 TextX = (int32)(TitleRect.x + ButtonWidth / 2 - TextW / 2);
     int32 TextY = (int32)(TitleRect.y + ButtonHeight / 2 - 24);
     DrawText(Title, TextX, TextY, 48, WHITE);
-
+    
     Rectangle ButtonRect1 = {
         (f32)CenterX - ButtonWidth / 2,
         (f32)StartY,
         (f32)ButtonWidth,
         (f32)ButtonHeight
     };
-
+    
     Rectangle ButtonRect2 = {
         ButtonRect1.x,
         ButtonRect1.y + ButtonHeight,
         (f32)ButtonWidth,
         (f32)ButtonHeight
     };
-
+    
     Rectangle ButtonRect3 = {
         ButtonRect1.x,
         ButtonRect1.y + ButtonHeight * 2,
         (f32)ButtonWidth,
         (f32)ButtonHeight
     };
-
+    
     if (DoBoxedButton("Increase Max Health", ButtonRect1, 36, RED))
     {
         State->Player.MaxHealth += 20.0f;
@@ -337,9 +375,9 @@ int main(void)
     SetConfigFlags(FLAG_WINDOW_HIGHDPI | FLAG_VSYNC_HINT);
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Space Survivors");
     InitAudioDevice();
-
+    
     SetExitKey(KEY_NULL);
-
+    
     rlDisableBackfaceCulling();
     rlDisableDepthTest();
 
@@ -348,210 +386,221 @@ int main(void)
     ExplosionSound = LoadSound("../assets/sfx/explosion.mp3");
     ThrusterSound = LoadSound("../assets/sfx/thruster.mp3");
     ButtonClickSound = LoadSound("../assets/sfx/button.mp3");
-
+    
     MenuMusic = LoadMusicStream("../assets/music/menu.mp3");
     GameplayMusic = LoadMusicStream("../assets/music/gameplay.mp3");
-
-    SetMusicVolume(MenuMusic, 1.0f);
-    SetMusicVolume(GameplayMusic, 1.0f);
-
+    
+    SetMusicVolume(MenuMusic, 0.2f);
+    SetMusicVolume(GameplayMusic, 0.2f);
+    
     TraceLog(LOG_INFO, "Menu music length: %f", GetMusicTimeLength(MenuMusic));
     TraceLog(LOG_INFO, "Gameplay music length: %f", GetMusicTimeLength(GameplayMusic));
-
+    
     MenuMusic.looping = true;
     GameplayMusic.looping = true;
-
+    
     PlayMusicStream(MenuMusic);
     if (MenuMusic.stream.buffer == NULL)
         TraceLog(LOG_WARNING, "MenuMusic failed to load!");
-
+    
     for (int32 i = 0; i < ArrayCount(Stars); i++)
     {
         Stars[i] = (v2){ RandomFloat(-250.0f, (f32)WINDOW_WIDTH + 250.0f), RandomFloat(-250.0f, (f32)WINDOW_HEIGHT) + 250.0f };
     }
-
+    
     game_state State = { 0 };
-
+    
     while (!WindowShouldClose() && IsRunning)
     {
         f32 dt = GetFrameTime();
-
-        /*TraceLog(LOG_INFO, "MenuMusic length: %f", GetMusicTimeLength(MenuMusic));
-        TraceLog(LOG_INFO, "Is MenuMusic playing? %d", IsMusicStreamPlaying(MenuMusic));*/
-
 
         BeginDrawing();
         DrawBackground();
         switch (State.Type)
         {
-        case MainMenu:
-        {
-            ResumeMusicStream(MenuMusic);
-            if (!IsMusicStreamPlaying(MenuMusic)) PlayMusicStream(MenuMusic);
-            if (IsMusicStreamPlaying(GameplayMusic)) StopMusicStream(GameplayMusic);
-
-            UpdateMusicStream(MenuMusic);
-
-            DrawMainMenu(&State);
-            break;
-        }
-        case Controls:
-        {
-            ResumeMusicStream(MenuMusic);
-            if (!IsMusicStreamPlaying(MenuMusic)) PlayMusicStream(MenuMusic);
-            if (IsMusicStreamPlaying(GameplayMusic)) StopMusicStream(GameplayMusic);
-
-            UpdateMusicStream(MenuMusic);
-
-            if (IsKeyPressed(KEY_ESCAPE))
+            case MainMenu:
             {
-                State.Type = State.LastType;
+                ResumeMusicStream(MenuMusic);
+                if (!IsMusicStreamPlaying(MenuMusic)) PlayMusicStream(MenuMusic);
+                if (IsMusicStreamPlaying(GameplayMusic)) StopMusicStream(GameplayMusic);
+                
+                UpdateMusicStream(MenuMusic);
+                
+                DrawMainMenu(&State);
+                break;
             }
-
-            DrawControlsMenu(&State);
-            break;
-        }
-        case Playing:
-        {
-            ResumeMusicStream(GameplayMusic);
-            if (!IsMusicStreamPlaying(GameplayMusic))
-                PlayMusicStream(GameplayMusic);
-
-            if (IsMusicStreamPlaying(MenuMusic))
-                StopMusicStream(MenuMusic);
-
-            UpdateMusicStream(GameplayMusic);
-
-            if (IsKeyDown(KEY_W))
+            case Controls:
             {
-                AcceleratePlayer(&State.Player, dt);
-
-                State.Particles.Accumulator += dt;
-                if (State.Particles.Accumulator >= 0.05f)
+                ResumeMusicStream(MenuMusic);
+                if (!IsMusicStreamPlaying(MenuMusic)) PlayMusicStream(MenuMusic);
+                if (IsMusicStreamPlaying(GameplayMusic)) StopMusicStream(GameplayMusic);
+                
+                UpdateMusicStream(MenuMusic);
+                
+                if (IsKeyPressed(KEY_ESCAPE))
                 {
-                    f32 Radians = State.Player.Angle * DEG2RAD;
-                    v2 Direction = (v2){ sinf(Radians), -cosf(Radians) };
-                    v2 FirePosition = Vector2Subtract(State.Player.Position, Vector2Scale(Direction, PlayerTexture.height * 0.5f));
-                    EmitParticles(&State.Particles, FirePosition, ORANGE, 1);
-                    State.Particles.Accumulator = 0.0f;
+                    State.Type = State.LastType;
                 }
-                if (!IsSoundPlaying(ThrusterSound))
-                {
-                    PlaySound(ThrusterSound);
-                }
+                
+                DrawControlsMenu(&State);
+                break;
             }
-            else
+            case Playing:
             {
+                ResumeMusicStream(GameplayMusic);
+                if (!IsMusicStreamPlaying(GameplayMusic))
+                    PlayMusicStream(GameplayMusic);
+                
+                if (IsMusicStreamPlaying(MenuMusic))
+                    StopMusicStream(MenuMusic);
+                
+                UpdateMusicStream(GameplayMusic);
+                
+                if (IsKeyDown(KEY_W))
+                {
+                    AcceleratePlayer(&State.Player, dt);
+                    
+                    State.Particles.Accumulator += dt;
+                    if (State.Particles.Accumulator >= 0.05f)
+                    {
+                        f32 Radians = State.Player.Angle * DEG2RAD;
+                        v2 Direction = (v2){ sinf(Radians), -cosf(Radians) };
+                        v2 FirePosition = Vector2Subtract(State.Player.Position, Vector2Scale(Direction, PlayerTexture.height * 0.5f));
+                        EmitParticles(&State.Particles, FirePosition, ORANGE, 1);
+                        State.Particles.Accumulator = 0.0f;
+                    }
+                    if (!IsSoundPlaying(ThrusterSound))
+                    {
+                        PlaySound(ThrusterSound);
+                    }
+                }
+                else
+                {
+                    if (IsSoundPlaying(ThrusterSound))
+                    {
+                        StopSound(ThrusterSound);
+                    }
+                }
+                if (IsKeyDown(KEY_A))
+                {
+                    State.Player.Angle -= ROTATION_SPEED * dt;
+                }
+                if (IsKeyDown(KEY_D))
+                {
+                    State.Player.Angle += ROTATION_SPEED * dt;
+                }
+                if (IsKeyPressed(KEY_SPACE))
+                {
+                    for (int32 i = 0; i < State.Player.ProjectileCount; i++)
+                    {
+                        f32 Offset = (2.0f * PI * i) / State.Player.ProjectileCount;
+                        f32 ProjectileAngle = (State.Player.Angle * DEG2RAD) + Offset;
+                        SpawnProjectile(&State.Projectiles, State.Player.Position, ProjectileAngle);
+                    }
+                }
+                if (IsKeyPressed(KEY_ESCAPE))
+                {
+                    State.Type = Paused;
+                }
+                
+                UpdateParticles(&State.Particles, dt);
+                UpdateProjectiles(&State.Projectiles, dt);
+                UpdateEnemies(&State.Enemies, State.Player.Position, dt);
+                UpdatePlayer(&State.Player, dt);
+                UpdateGameCamera(&State, dt);
+                UpdateBackground(&State, dt);
+                
+                ResolveCollisions(&State);
+                if (State.Enemies.EnemiesRemaining <= 0)
+                {
+                    StartNextWave(&State.Enemies, State.Player.Position);
+                }
+                
+                if (State.Player.HasLeveledUp)
+                {
+                    State.Type = LevelUp;
+                }
+                
+                BeginMode2D(State.Camera);
+                DrawPlayer(State.Player);
+                DrawProjectiles(State.Projectiles);
+                DrawEnemies(State.Enemies);
+                DrawParticles(State.Particles);
+                EndMode2D();
+                DrawHUD(&State);
+                
+                break;
+            }
+            case LevelUp:
+            {
+                if (IsMusicStreamPlaying(MenuMusic)) PauseMusicStream(MenuMusic);
+                if (IsMusicStreamPlaying(GameplayMusic)) PauseMusicStream(GameplayMusic);
+                
                 if (IsSoundPlaying(ThrusterSound))
                 {
                     StopSound(ThrusterSound);
                 }
+                
+                BeginMode2D(State.Camera);
+                DrawPlayer(State.Player);
+                DrawProjectiles(State.Projectiles);
+                DrawEnemies(State.Enemies);
+                DrawParticles(State.Particles);
+                EndMode2D();
+                DrawHUD(&State);
+                
+                DrawLevelUpScreen(&State);
+                break;
             }
-            if (IsKeyDown(KEY_A))
+            case Paused:
             {
-                State.Player.Angle -= ROTATION_SPEED * dt;
-            }
-            if (IsKeyDown(KEY_D))
-            {
-                State.Player.Angle += ROTATION_SPEED * dt;
-            }
-            if (IsKeyPressed(KEY_SPACE))
-            {
-                for (int32 i = 0; i < State.Player.ProjectileCount; i++)
+                if (IsMusicStreamPlaying(MenuMusic)) PauseMusicStream(MenuMusic);
+                if (IsMusicStreamPlaying(GameplayMusic)) PauseMusicStream(GameplayMusic);
+                
+                if (IsSoundPlaying(ThrusterSound))
                 {
-                    f32 Offset = (2.0f * PI * i) / State.Player.ProjectileCount;
-                    f32 ProjectileAngle = (State.Player.Angle * DEG2RAD) + Offset;
-                    SpawnProjectile(&State.Projectiles, State.Player.Position, ProjectileAngle);
+                    StopSound(ThrusterSound);
                 }
+                
+                if (IsKeyPressed(KEY_ESCAPE))
+                {
+                    State.Type = Playing;
+                }
+                
+                BeginMode2D(State.Camera);
+                DrawPlayer(State.Player);
+                DrawProjectiles(State.Projectiles);
+                DrawEnemies(State.Enemies);
+                DrawParticles(State.Particles);
+                EndMode2D();
+                DrawHUD(&State);
+                
+                DrawPausedMenu(&State);
+                break;
             }
-            if (IsKeyPressed(KEY_ESCAPE))
+            case GameOver:
             {
-                State.Type = Paused;
+                StopMusicStream(GameplayMusic);
+                StopMusicStream(MenuMusic);
+                
+                if (IsSoundPlaying(ThrusterSound))
+                {
+                    StopSound(ThrusterSound);
+                }
+                
+                DrawGameOver(&State);
+                break;
             }
-
-            UpdateParticles(&State.Particles, dt);
-            UpdateProjectiles(&State.Projectiles, dt);
-            UpdateEnemies(&State.Enemies, State.Player.Position, dt);
-            UpdatePlayer(&State.Player, dt);
-            UpdateGameCamera(&State, dt);
-            UpdateBackground(&State, dt);
-
-            ResolveCollisions(&State);
-            if (State.Enemies.EnemiesRemaining <= 0)
+            case Quit:
             {
-                StartNextWave(&State.Enemies, State.Player.Position);
-            }
-
-            if (State.Player.HasLeveledUp)
-            {
-                State.Type = LevelUp;
-            }
-
-            BeginMode2D(State.Camera);
-            DrawPlayer(State.Player);
-            DrawProjectiles(State.Projectiles);
-            DrawEnemies(State.Enemies);
-            DrawParticles(State.Particles);
-            EndMode2D();
-            DrawHUD(&State);
-
-            break;
-        }
-        case LevelUp:
-        {
-            if (IsMusicStreamPlaying(MenuMusic)) PauseMusicStream(MenuMusic);
-            if (IsMusicStreamPlaying(GameplayMusic)) PauseMusicStream(GameplayMusic);
-
-            if (IsSoundPlaying(ThrusterSound))
-            {
-                StopSound(ThrusterSound);
+                IsRunning = false;
+                break;
             }
 
-            BeginMode2D(State.Camera);
-            DrawPlayer(State.Player);
-            DrawProjectiles(State.Projectiles);
-            DrawEnemies(State.Enemies);
-            DrawParticles(State.Particles);
-            EndMode2D();
-            DrawHUD(&State);
-
-            DrawLevelUpScreen(&State);
-            break;
-        }
-        case Paused:
-        {
-            if (IsMusicStreamPlaying(MenuMusic)) PauseMusicStream(MenuMusic);
-            if (IsMusicStreamPlaying(GameplayMusic)) PauseMusicStream(GameplayMusic);
-
-            if (IsSoundPlaying(ThrusterSound))
+            if (State.Enemies.CurrentWave > State.Player.HighScore)
             {
-                StopSound(ThrusterSound);
-            }
-
-            if (IsKeyPressed(KEY_ESCAPE))
-            {
-                State.Type = Playing;
-            }
-
-            BeginMode2D(State.Camera);
-            DrawPlayer(State.Player);
-            DrawProjectiles(State.Projectiles);
-            DrawEnemies(State.Enemies);
-            DrawParticles(State.Particles);
-            EndMode2D();
-            DrawHUD(&State);
-
-            DrawPausedMenu(&State);
-            break;
-        }
-        case GameOver:
-        {
-            StopMusicStream(GameplayMusic);
-            StopMusicStream(MenuMusic);
-
-            if (IsSoundPlaying(ThrusterSound))
-            {
-                StopSound(ThrusterSound);
+                State.Player.HighScore = State.Enemies.CurrentWave;
+                SaveHighScore(State.Player.HighScore);
             }
 
             DrawGameOver(&State);
@@ -563,11 +612,11 @@ int main(void)
             break;
         }
         }
-
+        
         DrawFPS(10, 10);
         EndDrawing();
     }
-
+    
     CloseWindow();
     return(0);
 }
