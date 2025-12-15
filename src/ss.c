@@ -343,14 +343,14 @@ int main(void)
     rlDisableBackfaceCulling();
     rlDisableDepthTest();
 
-    EnemyTexture = LoadTexture("assets/enemy.png");
-    PlayerTexture = LoadTexture("assets/ship.png");
-    ExplosionSound = LoadSound("assets/sfx/explosion.mp3");
-    ThrusterSound = LoadSound("assets/sfx/thruster.mp3");
-    ButtonClickSound = LoadSound("assets/sfx/button.mp3");
+    EnemyTexture = LoadTexture("../assets/enemy.png");
+    PlayerTexture = LoadTexture("../assets/ship.png");
+    ExplosionSound = LoadSound("../assets/sfx/explosion.mp3");
+    ThrusterSound = LoadSound("../assets/sfx/thruster.mp3");
+    ButtonClickSound = LoadSound("../assets/sfx/button.mp3");
 
-    MenuMusic = LoadMusicStream("assets/music/menu.mp3");
-    GameplayMusic = LoadMusicStream("assets/music/gameplay.mp3");
+    MenuMusic = LoadMusicStream("../assets/music/menu.mp3");
+    GameplayMusic = LoadMusicStream("../assets/music/gameplay.mp3");
 
     SetMusicVolume(MenuMusic, 1.0f);
     SetMusicVolume(GameplayMusic, 1.0f);

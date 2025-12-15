@@ -68,10 +68,10 @@ gcc src/ss.c -I./src -std=c11 -Wall -Wextra -lraylib -lopengl32 -lgdi32 -lwinmm 
 
 ## Running the Game
 
-Run the executable from the project root (where the `assets/` folder exists):
+Run the executable from the src folder:
 
 ```bash
-./space-survivors.exe
+../space-survivors.exe
 ```
 
 > **Note:** The game will fail to load assets if the executable is run from a directory that does not contain the `assets/` folder.
